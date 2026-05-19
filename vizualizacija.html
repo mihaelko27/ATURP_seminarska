@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<title>Sestop — Vizualizacija</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;800&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --border: #1e2d40;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --peak: #ff3366;
+    --valley: #00ff88;
+    --path: #ffdd00;
+    --text: #e2e8f0;
+    --muted: #4a5568;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .subtitle { color: var(--muted); font-size: 0.78rem; margin-bottom: 20px; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .controls label { font-size: 0.75rem; color: var(--muted); margin-right: 4px; }
+
+  input[type=file] {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    flex: 1;
+    min-width: 180px;
+  }
+  input[type=file]::file-selector-button {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-right: 8px;
+  }
+
+  select, input[type=number] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+  }
+
+  button {
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 7px 16px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s;
+  }
+  button:hover { opacity: 0.85; }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .info-bar {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    max-width: 900px;
+    width: 100%;
+  }
+  .info-bar span { color: var(--text); }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 3px 10px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .canvas-wrap {
+    overflow: auto;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  canvas { display: block; cursor: crosshair; }
+
+  .tooltip {
+    position: fixed;
+    background: #0d1526ee;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.72rem;
+    pointer-events: none;
+    display: none;
+    z-index: 100;
+    line-height: 1.6;
+    box-shadow: 0 4px 20px #00000088;
+  }
+  .tooltip .tval { color: var(--accent); font-weight: 700; font-size: 0.9rem; }
+
+  .path-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    max-width: 900px;
+    width: 100%;
+  }
+  .path-input input[type=text] {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--path);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 7px 12px;
+    letter-spacing: 0.08em;
+  }
+  .path-input input[type=text]::placeholder { color: var(--muted); }
+
+  .path-status {
+    font-size: 0.72rem;
+    margin-top: 8px;
+    max-width: 900px;
+    width: 100%;
+    min-height: 1.2em;
+  }
+  .ok { color: var(--valley); }
+  .err { color: var(--peak); }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  #placeholder {
+    width: 600px;
+    height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+  }
+  #placeholder .icon { font-size: 2.5rem; }
+</style>
+</head>
+<body>
+
+<h1>SESTOP — Vizualizacija</h1>
+<p class="subtitle">Naloži .in datoteko → prikaz višin, barv, poti</p>
+
+<div class="controls">
+  <input type="file" id="fileInput" accept=".in,.txt">
+  <label>Celica:</label>
+  <select id="cellSize">
+    <option value="4">4px</option>
+    <option value="6">6px</option>
+    <option value="8" selected>8px</option>
+    <option value="12">12px</option>
+    <option value="16">16px</option>
+    <option value="24">24px</option>
+  </select>
+  <label>Barvna lestvica:</label>
+  <select id="colorMode">
+    <option value="terrain">Teren</option>
+    <option value="heat">Toplota</option>
+    <option value="ice">Led</option>
+    <option value="gray">Sivine</option>
+  </select>
+  <label>Kontrast:</label>
+  <select id="contrastMode">
+    <option value="global">Globalni</option>
+    <option value="equalize" selected>Izenačen (histogram)</option>
+    <option value="local">Lokalni (5×5)</option>
+  </select>
+  <button class="secondary" onclick="clearPath()">Počisti pot</button>
+</div>
+
+<div class="info-bar" id="infoBar" style="display:none">
+  <div class="badge">N×M: <span id="infoNM">—</span></div>
+  <div class="badge">K: <span id="infoK">—</span></div>
+  <div class="badge"><span class="dot" style="background:var(--peak)"></span>MAX: <span id="infoMax">—</span></div>
+  <div class="badge"><span class="dot" style="background:var(--valley)"></span>MIN: <span id="infoMin">—</span></div>
+  <div class="badge">Začetek: <span id="infoStart">—</span></div>
+  <div class="badge">Konec: <span id="infoEnd">—</span></div>
+</div>
+
+<div class="canvas-wrap">
+  <div id="placeholder">
+    <div class="icon">🏔</div>
+    <div>Naloži .in datoteko za prikaz mreže</div>
+  </div>
+  <canvas id="canvas" style="display:none"></canvas>
+</div>
+
+<div class="path-input">
+  <label style="font-size:0.75rem;color:var(--muted)">Pot (J/S/V/Z):</label>
+  <input type="text" id="pathInput" placeholder="npr. JZZSZZJJV" oninput="drawPath()">
+  <button onclick="document.getElementById('pathInput').value=''; drawPath()">✕</button>
+</div>
+<div class="path-status" id="pathStatus"></div>
+
+<div class="legend">
+  <div class="badge"><span class="dot" style="background:var(--peak)"></span>Vrh (start)</div>
+  <div class="badge"><span class="dot" style="background:var(--valley)"></span>Dno (cilj)</div>
+  <div class="badge"><span class="dot" style="background:var(--path)"></span>Pot</div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+let grid = [], N = 0, M = 0, K = 0;
+let startR = 0, startC = 0, endR = 0, endC = 0;
+let cellSize = 8;
+let pathCells = [];
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => parseInput(ev.target.result);
+  reader.readAsText(file);
+});
+
+document.getElementById('cellSize').addEventListener('change', e => {
+  cellSize = parseInt(e.target.value);
+  if (grid.length) render();
+});
+
+document.getElementById('colorMode').addEventListener('change', () => {
+  if (grid.length) render();
+});
+document.getElementById('contrastMode').addEventListener('change', () => {
+  if (grid.length) render();
+});
+
+function parseInput(text) {
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  const [n, m, k] = lines[0].split(/\s+/);
+  N = parseInt(n); M = parseInt(m); K = k;
+  grid = [];
+  let mn = Infinity, mx = -Infinity;
+  let mnR = 0, mnC = 0, mxR = 0, mxC = 0;
+  for (let i = 0; i < N; i++) {
+    const row = lines[i + 1].split(/\s+/).map(Number);
+    grid.push(row);
+    for (let j = 0; j < M; j++) {
+      if (row[j] > mx) { mx = row[j]; mxR = i; mxC = j; }
+      if (row[j] < mn) { mn = row[j]; mnR = i; mnC = j; }
+    }
+  }
+  startR = mxR; startC = mxC;
+  endR = mnR; endC = mnC;
+
+  document.getElementById('infoBar').style.display = 'flex';
+  document.getElementById('infoNM').textContent = `${N}×${M}`;
+  document.getElementById('infoK').textContent = K;
+  document.getElementById('infoMax').textContent = mx;
+  document.getElementById('infoMin').textContent = mn;
+  document.getElementById('infoStart').textContent = `(${mxR},${mxC})`;
+  document.getElementById('infoEnd').textContent = `(${mnR},${mnC})`;
+
+  document.getElementById('placeholder').style.display = 'none';
+  canvas.style.display = 'block';
+
+  pathCells = [];
+  document.getElementById('pathInput').value = '';
+  document.getElementById('pathStatus').textContent = '';
+
+  render();
+}
+
+function getColor(norm, mode) {
+  // norm in [0,1], 1 = highest
+  switch (mode) {
+    case 'terrain': {
+      // blue -> green -> yellow -> brown -> white
+      const stops = [
+        [0,    [20, 40, 120]],
+        [0.25, [34, 139, 34]],
+        [0.5,  [154, 205, 50]],
+        [0.72, [210, 180, 100]],
+        [0.88, [160, 100, 60]],
+        [1,    [255, 255, 255]],
+      ];
+      return interpStops(norm, stops);
+    }
+    case 'heat': {
+      const stops = [
+        [0,   [10, 10, 40]],
+        [0.3, [80, 0, 120]],
+        [0.6, [200, 30, 30]],
+        [0.8, [255, 140, 0]],
+        [1,   [255, 255, 100]],
+      ];
+      return interpStops(norm, stops);
+    }
+    case 'ice': {
+      const stops = [
+        [0,   [5, 10, 30]],
+        [0.4, [0, 60, 120]],
+        [0.7, [0, 160, 220]],
+        [1,   [200, 240, 255]],
+      ];
+      return interpStops(norm, stops);
+    }
+    case 'gray': {
+      const v = Math.round(norm * 220 + 10);
+      return [v, v, v];
+    }
+  }
+}
+
+function interpStops(t, stops) {
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [t0, c0] = stops[i];
+    const [t1, c1] = stops[i + 1];
+    if (t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      return c0.map((v, k) => Math.round(v + f * (c1[k] - v)));
+    }
+  }
+  return stops[stops.length - 1][1];
+}
+
+function buildEqualizeMap() {
+  // Histogram equalization: rank each cell among all values
+  const flat = [];
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < M; j++)
+      flat.push(grid[i][j]);
+  const sorted = [...flat].sort((a, b) => a - b);
+  const rankMap = new Map();
+  sorted.forEach((v, idx) => { if (!rankMap.has(v)) rankMap.set(v, idx); });
+  const total = sorted.length - 1 || 1;
+  return v => rankMap.get(v) / total;
+}
+
+function buildLocalMap(radius) {
+  // Local contrast: normalize each cell within its neighborhood
+  const norm = Array.from({length: N}, () => new Float32Array(M));
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < M; j++) {
+      let mn = Infinity, mx = -Infinity;
+      for (let di = -radius; di <= radius; di++)
+        for (let dj = -radius; dj <= radius; dj++) {
+          const ni = i + di, nj = j + dj;
+          if (ni >= 0 && ni < N && nj >= 0 && nj < M) {
+            if (grid[ni][nj] > mx) mx = grid[ni][nj];
+            if (grid[ni][nj] < mn) mn = grid[ni][nj];
+          }
+        }
+      norm[i][j] = mx > mn ? (grid[i][j] - mn) / (mx - mn) : 0.5;
+    }
+  }
+  return (i, j) => norm[i][j];
+}
+
+function render() {
+  const cs = parseInt(document.getElementById('cellSize').value);
+  cellSize = cs;
+  canvas.width = M * cs;
+  canvas.height = N * cs;
+
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < M; j++) {
+      if (grid[i][j] > mx) mx = grid[i][j];
+      if (grid[i][j] < mn) mn = grid[i][j];
+    }
+
+  const mode = document.getElementById('colorMode').value;
+  const contrast = document.getElementById('contrastMode').value;
+  const range = mx - mn || 1;
+
+  let equalizeMap, localMap;
+  if (contrast === 'equalize') equalizeMap = buildEqualizeMap();
+  if (contrast === 'local') localMap = buildLocalMap(5);
+
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < M; j++) {
+      let norm;
+      if (contrast === 'equalize') norm = equalizeMap(grid[i][j]);
+      else if (contrast === 'local') norm = localMap(i, j);
+      else norm = (grid[i][j] - mn) / range;
+      const [r, g, b] = getColor(norm, mode);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(j * cs, i * cs, cs, cs);
+    }
+  }
+
+  // Draw path
+  if (pathCells.length > 1) {
+    ctx.strokeStyle = 'rgba(255,221,0,0.85)';
+    ctx.lineWidth = Math.max(2, cs * 0.45);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pathCells[0][1] * cs + cs / 2, pathCells[0][0] * cs + cs / 2);
+    for (let k = 1; k < pathCells.length; k++) {
+      ctx.lineTo(pathCells[k][1] * cs + cs / 2, pathCells[k][0] * cs + cs / 2);
+    }
+    ctx.stroke();
+
+    // Dots on path
+    if (cs >= 6) {
+      ctx.fillStyle = 'rgba(255,221,0,0.6)';
+      for (const [pr, pc] of pathCells) {
+        ctx.beginPath();
+        ctx.arc(pc * cs + cs / 2, pr * cs + cs / 2, Math.max(1.5, cs * 0.2), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  drawMarkers(cs);
+}
+
+function drawMarkers(cs) {
+  const drawStar = (cx, cy, r, color) => {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = cs > 8 ? 1.5 : 0.8;
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(r, 3), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  drawStar(startC * cs + cs / 2, startR * cs + cs / 2, cs * 0.55, '#ff3366');
+  drawStar(endC * cs + cs / 2, endR * cs + cs / 2, cs * 0.55, '#00ff88');
+}
+
+// Tooltip
+canvas.addEventListener('mousemove', e => {
+  if (!grid.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const col = Math.floor(x / cellSize);
+  const row = Math.floor(y / cellSize);
+  if (row < 0 || row >= N || col < 0 || col >= M) { tooltip.style.display = 'none'; return; }
+
+  const val = grid[row][col];
+  const onPath = pathCells.some(([pr, pc]) => pr === row && pc === col);
+  tooltip.innerHTML = `
+    <div class="tval">${val}</div>
+    <div>vrstica ${row}, stolpec ${col}</div>
+    ${onPath ? '<div style="color:var(--path)">● na poti</div>' : ''}
+    ${row === startR && col === startC ? '<div style="color:var(--peak)">▲ vrh (start)</div>' : ''}
+    ${row === endR && col === endC ? '<div style="color:var(--valley)">▼ dno (cilj)</div>' : ''}
+  `;
+  tooltip.style.display = 'block';
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top = (e.clientY - 10) + 'px';
+});
+canvas.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+
+function drawPath() {
+  if (!grid.length) return;
+  const raw = document.getElementById('pathInput').value.toUpperCase().trim();
+  const status = document.getElementById('pathStatus');
+
+  if (!raw) { pathCells = []; render(); status.textContent = ''; return; }
+
+  // Validate chars
+  if (/[^JSVZ]/.test(raw)) {
+    status.innerHTML = '<span class="err">Napaka: dovoljeni znaki so J, S, V, Z</span>';
+    pathCells = []; render(); return;
+  }
+
+  const dirMap = { J: [1, 0], S: [-1, 0], V: [0, 1], Z: [0, -1] };
+  let r = startR, c = startC;
+  const cells = [[r, c]];
+  let ok = true;
+
+  for (const ch of raw) {
+    const [dr, dc] = dirMap[ch];
+    const nr = r + dr, nc = c + dc;
+    if (nr < 0 || nr >= N || nc < 0 || nc >= M) {
+      status.innerHTML = `<span class="err">Napaka pri koraku ${cells.length}: izven mreže (${nr},${nc})</span>`;
+      ok = false; break;
+    }
+    if (grid[nr][nc] >= grid[r][c]) {
+      status.innerHTML = `<span class="err">Napaka pri koraku ${cells.length}: višina ne pada (${grid[r][c]} → ${grid[nr][nc]})</span>`;
+      ok = false; break;
+    }
+    r = nr; c = nc;
+    cells.push([r, c]);
+  }
+
+  pathCells = cells;
+  render();
+
+  if (ok) {
+    const atEnd = r === endR && c === endC;
+    if (atEnd) {
+      status.innerHTML = `<span class="ok">✓ Veljavna pot (${raw.length} korakov) — doseže cilj</span>`;
+    } else {
+      status.innerHTML = `<span style="color:var(--accent)">⚠ Veljavna pot (${raw.length} korakov) — ne doseže cilja še (konča na (${r},${c}), h=${grid[r][c]})</span>`;
+    }
+  }
+}
+
+function clearPath() {
+  document.getElementById('pathInput').value = '';
+  pathCells = [];
+  document.getElementById('pathStatus').textContent = '';
+  if (grid.length) render();
+}
+</script>
+</body>
+</html>
